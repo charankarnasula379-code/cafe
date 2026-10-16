@@ -985,27 +985,31 @@ function initGuestsSelector() {
   const countDisplay = document.getElementById('guests-count');
   const hiddenInput  = document.getElementById('res-guests');
 
-  if (!minusBtn || !plusBtn) return;
+  if (!minusBtn || !plusBtn || !countDisplay || !hiddenInput) return;
 
-  let guests = 2;
+  let guests = Number.parseInt(countDisplay.textContent, 10) || 2;
   const MIN = 1, MAX = 12;
 
   const update = () => {
-    countDisplay.textContent = guests;
-    hiddenInput.value        = guests;
+    countDisplay.textContent = String(guests);
+    hiddenInput.value        = String(guests);
     minusBtn.disabled        = guests <= MIN;
     plusBtn.disabled         = guests >= MAX;
 
-    if (typeof gsap !== 'undefined') {
-      gsap.fromTo(countDisplay,
-        { scale: 1.3, color: '#5A3E36' },
-        { scale: 1,   color: '#1C1410', duration: 0.3, ease: 'back.out(3)' }
-      );
-    }
+    // Restart the CSS animation on every valid change; it doesn't rely on GSAP.
+    countDisplay.classList.remove('is-changing');
+    void countDisplay.offsetWidth;
+    countDisplay.classList.add('is-changing');
   };
 
-  minusBtn.addEventListener('click', (e) => { e.preventDefault(); if (guests > MIN) { guests--; update(); } });
-  plusBtn.addEventListener('click',  (e) => { e.preventDefault(); if (guests < MAX) { guests++; update(); } });
+  minusBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    if (guests > MIN) { guests--; update(); }
+  });
+  plusBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    if (guests < MAX) { guests++; update(); }
+  });
 }
 
 /* ──────────────────────────────────────────────────────────
