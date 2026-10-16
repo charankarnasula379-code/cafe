@@ -7,7 +7,7 @@ name: Deploy Cafe Website
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
   pages: write
   id-token: write
 
@@ -23,103 +23,8 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
-      - name: Check out repository history
+      - name: Check out repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Restore missing website files from original ZIP
-        shell: bash
-        env:
-          SOURCE_COMMIT: 75926995af23f6600728dad7a0e01f9aa45d65d9
-        run: |
-          set -euo pipefail
-          archive="$RUNNER_TEMP/cafe-original.zip"
-          extracted="$RUNNER_TEMP/cafe-extracted"
-          mkdir -p "$extracted"
-
-          # The original ZIP is retained in Git history from the initial upload.
-          git show "${SOURCE_COMMIT}:cafe.zip" > "$archive"
-          unzip -q "$archive" -d "$extracted"
-
-          # Identify the actual website root by its collection of matching files.
-          # This avoids mistakenly selecting package.json files inside node_modules.
-          source_root=""
-          while IFS= read -r -d '' index_file; do
-            candidate="$(dirname "$index_file")"
-            if [[ -f "$candidate/main.js" &&
-                  -f "$candidate/admin.js" &&
-                  -f "$candidate/admin.html" &&
-                  -f "$candidate/style.css" &&
-                  -f "$candidate/package.json" &&
-                  -f "$candidate/vite.config.js" ]]; then
-              source_root="$candidate"
-              break
-            fi
-          done < <(
-            find "$extracted" -type f -name index.html \
-              -not -path '*/node_modules/*' \
-              -not -path '*/dist/*' \
-              -not -path '*/build/*' -print0
-          )
-
-          if [[ -z "$source_root" ]]; then
-            echo "ERROR: Could not find the cafe project root in the original ZIP."
-            echo "Candidate index.html files:"
-            find "$extracted" -type f -name index.html \
-              -not -path '*/node_modules/*' \
-              -not -path '*/dist/*' | head -50
-            exit 1
-          fi
-
-          echo "Correct project root: $source_root"
-          if [[ ! -d "$source_root/assets" && ! -d "$source_root/public/assets" ]]; then
-            echo "ERROR: The expected assets/ or public/assets/ folder is missing from this project root."
-            find "$extracted" -type d -name assets -not -path '*/node_modules/*' | head -50
-            exit 1
-          fi
-
-          # Remove files accidentally copied from an unrelated nested npm package
-          # by the previous root-detection attempt. The real project versions, if
-          # any, will be restored below from the selected project root.
-          rm -rf ./lib
-          rm -f ./LICENSE ./index.d.ts ./.github/workflows.yml
-
-          # Add missing project files while preserving existing site source.
-          # Never copy dependencies, build output, credentials, or local secrets.
-          rsync -rlt --ignore-existing \
-            --exclude='.git/' \
-            --exclude='.github/' \
-            --exclude='node_modules/' \
-            --exclude='dist/' \
-            --exclude='build/' \
-            --exclude='coverage/' \
-            --exclude='.env*' \
-            --exclude='*.pem' \
-            --exclude='*.key' \
-            --exclude='*.p12' \
-            --exclude='*.pfx' \
-            --exclude='*credentials*' \
-            --exclude='*secret*' \
-            --exclude='*service-account*.json' \
-            --exclude='*.sqlite' \
-            --exclude='*.db' \
-            --exclude='*.log' \
-            --exclude='.DS_Store' \
-            --exclude='Thumbs.db' \
-            "$source_root/" ./
-
-          echo "Asset files copied/present:"
-          find ./assets -type f 2>/dev/null | wc -l || true
-          git add -A
-          if git diff --cached --quiet; then
-            echo "No missing source files needed restoring."
-          else
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git commit -m "Restore cafe website assets and remove unrelated package files"
-            git push origin HEAD:main
-          fi
 
       - name: Set up Node.js
         uses: actions/setup-node@v4

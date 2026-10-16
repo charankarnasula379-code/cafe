@@ -14,30 +14,35 @@ function initCore() {
   initMenuFilter();     // Menu category tabs
   initGuestsSelector(); // Guests +/- buttons
   initReservationForm();// Reservation form submission
+  initTestimonials();  // Keep testimonial controls working if animations are unavailable
+}
+
+function showContentWithoutAnimations(reason) {
+  // Keep the website usable even if an optional animation library fails to load.
+  document.body.classList.add('animations-fallback');
+  const loader = document.getElementById('loader');
+  if (loader) loader.classList.add('is-hidden');
+  document.body.style.overflow = '';
+  if (reason) console.warn('[cherry] Showing the page without animations:', reason);
 }
 
 function initAnimationsWhenReady() {
-  // All scripts are loaded with `defer`, so they are guaranteed to be
-  // available by DOMContentLoaded. No polling needed.
-  // A 300ms safety delay handles any rare race conditions.
   setTimeout(() => {
     try {
-      if (typeof gsap !== 'undefined') {
-        if (typeof ScrollTrigger !== 'undefined') {
-          gsap.registerPlugin(ScrollTrigger);
-        }
-        initLoader();
-        initCursor();
-        initSignatureImageAnimations();
-        initTestimonials();
-      } else {
-        // GSAP failed to load (CDN down) — show page without animations
-        const loader = document.getElementById('loader');
-        if (loader) loader.classList.add('is-hidden');
-        document.body.style.overflow = '';
+      // ScrollTrigger is essential for the scroll-reveal animations. If it is
+      // missing, show every section instead of leaving CSS-hidden content.
+      if (typeof gsap === 'undefined' || typeof ScrollTrigger === 'undefined') {
+        showContentWithoutAnimations('GSAP or ScrollTrigger did not load.');
+        return;
       }
+
+      gsap.registerPlugin(ScrollTrigger);
+      initLoader();
+      initCursor();
+      initSignatureImageAnimations();
     } catch (err) {
       console.warn('Animation initialization notice:', err);
+      showContentWithoutAnimations(err);
     }
   }, 300);
 }
@@ -57,15 +62,27 @@ if (document.readyState === 'loading') {
    ────────────────────────────────────────────────────────── */
 function initLoader() {
   const loader = document.getElementById('loader');
-  const fill   = document.getElementById('loader-fill');
+  const fill = document.getElementById('loader-fill');
+
+  const startContent = () => {
+    loader && loader.classList.add('is-hidden');
+    document.body.style.overflow = '';
+    if (document.body.classList.contains('animations-fallback')) return;
+
+    try {
+      initLenis(); // Optional: native scrolling still works if Lenis is unavailable.
+      initAnimations();
+    } catch (err) {
+      console.warn('Page animation notice:', err);
+      showContentWithoutAnimations(err);
+    }
+  };
 
   if (!loader || !fill) {
-    initLenis();
-    initAnimations();
+    startContent();
     return;
   }
 
-  // Animate progress bar
   let progress = 0;
   const interval = setInterval(() => {
     progress += Math.random() * 18;
@@ -74,26 +91,23 @@ function initLoader() {
       clearInterval(interval);
       fill.style.width = '100%';
 
-      // Hide loader and start page
       setTimeout(() => {
-        gsap.to(loader, {
-          opacity: 0,
-          duration: 0.7,
-          ease: 'power2.inOut',
-          onComplete: () => {
-            loader.classList.add('is-hidden');
-            document.body.style.overflow = '';
-            initLenis();
-            initAnimations();
-          }
-        });
+        try {
+          gsap.to(loader, {
+            opacity: 0,
+            duration: 0.7,
+            ease: 'power2.inOut',
+            onComplete: startContent
+          });
+        } catch (err) {
+          showContentWithoutAnimations(err);
+        }
       }, 400);
     } else {
       fill.style.width = progress + '%';
     }
   }, 120);
 
-  // Lock scroll during load
   document.body.style.overflow = 'hidden';
 }
 
@@ -103,6 +117,7 @@ function initLoader() {
 let lenisInstance;
 
 function initLenis() {
+  if (typeof Lenis === 'undefined' || typeof gsap === 'undefined') return;
   lenisInstance = new Lenis({
     duration: 1.2,
     easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
@@ -201,24 +216,28 @@ function animateHeroEntrance() {
   // Hero title lines — each word
   const titleLines = document.querySelectorAll('.hero-title-line');
   if (titleLines.length > 0) {
-    const splits = [];
-    titleLines.forEach(line => {
-      const split = new SplitType(line, { types: 'words' });
-      splits.push(split);
-    });
+    if (typeof SplitType !== 'undefined') {
+      titleLines.forEach(line => new SplitType(line, { types: 'words' }));
 
-    const words = document.querySelectorAll('.hero-title-line .word');
-    tl.fromTo(words,
-      { y: '110%', opacity: 0 },
-      {
-        y: '0%',
-        opacity: 1,
-        duration: 1.1,
-        ease: 'power4.out',
-        stagger: 0.06
-      },
-      '-=0.4'
-    );
+      const words = document.querySelectorAll('.hero-title-line .word');
+      tl.fromTo(words,
+        { y: '110%', opacity: 0 },
+        {
+          y: '0%',
+          opacity: 1,
+          duration: 1.1,
+          ease: 'power4.out',
+          stagger: 0.06
+        },
+        '-=0.4'
+      );
+    } else {
+      tl.fromTo(titleLines,
+        { y: 20, opacity: 0 },
+        { y: 0, opacity: 1, duration: 0.8, ease: 'power3.out', stagger: 0.12 },
+        '-=0.4'
+      );
+    }
   }
 
   // Tagline
@@ -247,6 +266,22 @@ function animateHeroEntrance() {
 function initTextReveal() {
   // Get all .reveal-text NOT inside .hero (hero handles its own)
   const textEls = document.querySelectorAll('.reveal-text:not(.hero *)');
+
+  if (typeof SplitType === 'undefined') {
+    textEls.forEach(el => {
+      gsap.fromTo(el,
+        { opacity: 0, y: 16 },
+        {
+          opacity: 1,
+          y: 0,
+          duration: 0.9,
+          ease: 'power3.out',
+          scrollTrigger: { trigger: el, start: 'top 88%', once: true }
+        }
+      );
+    });
+    return;
+  }
 
   textEls.forEach(el => {
     const splitType = el.dataset.split || 'words';
@@ -681,17 +716,19 @@ function openMobileMenu() {
   hamburger.setAttribute('aria-expanded', 'true');
   document.body.style.overflow = 'hidden';
 
-  // Stagger menu links
-  gsap.fromTo('.mobile-link',
-    { opacity: 0, x: -24 },
-    {
-      opacity: 1, x: 0,
-      duration: 0.5,
-      ease: 'power3.out',
-      stagger: 0.07,
-      delay: 0.15
-    }
-  );
+  // Stagger menu links when GSAP is available; the CSS menu still works without it.
+  if (typeof gsap !== 'undefined') {
+    gsap.fromTo('.mobile-link',
+      { opacity: 0, x: -24 },
+      {
+        opacity: 1, x: 0,
+        duration: 0.5,
+        ease: 'power3.out',
+        stagger: 0.07,
+        delay: 0.15
+      }
+    );
+  }
 }
 
 function closeMobileMenu() {
@@ -707,38 +744,43 @@ function closeMobileMenu() {
    6. MENU FILTER TABS
    ────────────────────────────────────────────────────────── */
 function initMenuFilter() {
-  const tabs  = document.querySelectorAll('.menu-tab');
+  const tabs = document.querySelectorAll('.menu-tab');
   const cards = document.querySelectorAll('.menu-card');
-
   if (!tabs.length || !cards.length) return;
 
   tabs.forEach(tab => {
     tab.addEventListener('click', () => {
-      // Update active tab
-      tabs.forEach(t => { t.classList.remove('active'); t.setAttribute('aria-selected', 'false'); });
+      tabs.forEach(t => {
+        t.classList.remove('active');
+        t.setAttribute('aria-selected', 'false');
+      });
       tab.classList.add('active');
       tab.setAttribute('aria-selected', 'true');
 
       const filter = tab.dataset.filter;
-
-      // Filter and animate
       cards.forEach((card, i) => {
-        const category = card.dataset.category;
-        const show = filter === 'all' || category === filter;
+        const show = filter === 'all' || card.dataset.category === filter;
 
         if (show) {
           card.style.display = '';
-          gsap.fromTo(card,
-            { opacity: 0, y: 20, scale: 0.97 },
-            { opacity: 1, y: 0, scale: 1, duration: 0.5, ease: 'power3.out', delay: i * 0.04 }
-          );
-        } else {
+          if (typeof gsap !== 'undefined') {
+            gsap.fromTo(card,
+              { opacity: 0, y: 20, scale: 0.97 },
+              { opacity: 1, y: 0, scale: 1, duration: 0.5, ease: 'power3.out', delay: i * 0.04 }
+            );
+          } else {
+            card.style.opacity = '1';
+            card.style.transform = 'none';
+          }
+        } else if (typeof gsap !== 'undefined') {
           gsap.to(card, {
             opacity: 0, y: 10,
             duration: 0.3,
             ease: 'power2.in',
             onComplete: () => { card.style.display = 'none'; }
           });
+        } else {
+          card.style.display = 'none';
         }
       });
     });
@@ -832,15 +874,19 @@ function initTestimonials() {
 
     const offset = current * (cardWidth + gap);
 
-    if (immediate) {
-      gsap.set(track, { x: -offset });
+    if (typeof gsap !== 'undefined') {
+      if (immediate) {
+        gsap.set(track, { x: -offset });
+      } else {
+        gsap.to(track, {
+          x: -offset,
+          duration: 0.6,
+          ease: 'power3.out',
+          overwrite: 'auto'
+        });
+      }
     } else {
-      gsap.to(track, {
-        x: -offset,
-        duration: 0.6,
-        ease: 'power3.out',
-        overwrite: 'auto'
-      });
+      track.style.transform = 'translateX(' + (-offset) + 'px)';
     }
 
     updateDots();

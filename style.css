@@ -1866,6 +1866,33 @@ body.cursor-text .cursor-ring {
   clip-path: inset(100% 0 0 0);
 }
 
+/* Resilience fallback: never hide page content when an animation CDN fails. */
+body.animations-fallback .loader {
+  display: none !important;
+}
+
+body.animations-fallback .reveal-text,
+body.animations-fallback .reveal-text *,
+body.animations-fallback .reveal-fade,
+body.animations-fallback .reveal-up,
+body.animations-fallback .clip-reveal,
+body.animations-fallback .hero-eyebrow,
+body.animations-fallback .hero-title-line,
+body.animations-fallback .hero-tagline,
+body.animations-fallback .hero-cta,
+body.animations-fallback .hero-cta .btn,
+body.animations-fallback #scroll-indicator,
+body.animations-fallback .hero-overlay,
+body.animations-fallback #hero-img,
+body.animations-fallback .gallery-item,
+body.animations-fallback .menu-card,
+body.animations-fallback .signature-img {
+  opacity: 1 !important;
+  visibility: visible !important;
+  transform: none !important;
+  clip-path: none !important;
+}
+
 /* ----------------------------------------------------------------
    20. MAGNETIC EFFECT (JS-driven, CSS base)
    ---------------------------------------------------------------- */

@@ -70,9 +70,10 @@
     window.setTimeout(function () {
       var loader = document.getElementById('loader');
       if (loader && !loader.classList.contains('is-hidden')) {
+        document.body.classList.add('animations-fallback');
         loader.classList.add('is-hidden');
         document.body.style.overflow = '';
-        console.warn('Loader safety fallback activated.');
+        console.warn('Loader safety fallback activated; showing content without animations.');
       }
     }, 7000);
   </script>
