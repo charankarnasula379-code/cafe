@@ -65,6 +65,18 @@
     </div>
   </div>
 
+  <!-- Safety fallback: never leave visitors stuck on the loading screen if an animation script fails. -->
+  <script>
+    window.setTimeout(function () {
+      var loader = document.getElementById('loader');
+      if (loader && !loader.classList.contains('is-hidden')) {
+        loader.classList.add('is-hidden');
+        document.body.style.overflow = '';
+        console.warn('Loader safety fallback activated.');
+      }
+    }, 7000);
+  </script>
+
   <!-- ============================================================ -->
   <!-- NAVIGATION -->
   <!-- ============================================================ -->
