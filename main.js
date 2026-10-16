@@ -28,9 +28,15 @@ function showContentWithoutAnimations(reason) {
 
 function initAnimationsWhenReady() {
   setTimeout(() => {
+    // The custom cursor does not need GSAP; initialize it independently so it
+    // still works on hybrid touch-screen laptops and if an animation CDN fails.
     try {
-      // ScrollTrigger is essential for the scroll-reveal animations. If it is
-      // missing, show every section instead of leaving CSS-hidden content.
+      initCursor();
+    } catch (err) {
+      console.warn('Custom cursor initialization notice:', err);
+    }
+
+    try {
       if (typeof gsap === 'undefined' || typeof ScrollTrigger === 'undefined') {
         showContentWithoutAnimations('GSAP or ScrollTrigger did not load.');
         return;
@@ -38,7 +44,6 @@ function initAnimationsWhenReady() {
 
       gsap.registerPlugin(ScrollTrigger);
       initLoader();
-      initCursor();
       initSignatureImageAnimations();
     } catch (err) {
       console.warn('Animation initialization notice:', err);
@@ -559,7 +564,7 @@ function initCursor() {
   if (!cursor) return;
 
   // Only on non-touch devices with fine pointer
-  if (window.matchMedia('(hover: hover) and (pointer: fine)').matches) {
+  if (window.matchMedia('(any-hover: hover) and (any-pointer: fine)').matches) {
     cursor.style.display = 'block';
 
     const dot  = cursor.querySelector('.cursor-dot');
