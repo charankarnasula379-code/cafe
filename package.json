@@ -1,0 +1,22 @@
+{
+  "name": "cherry-cafe",
+  "version": "1.0.0",
+  "description": "cherry Café Website & Reservation Management System",
+  "main": "main.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "keywords": [
+    "cafe",
+    "restaurant",
+    "reservations"
+  ],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "vite": "^8.2.2"
+  }
+}
