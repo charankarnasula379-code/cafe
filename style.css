@@ -1581,6 +1581,16 @@ body.cursor-text .cursor-ring {
   text-align: center;
 }
 
+.guests-count.is-changing {
+  animation: guest-count-pop 320ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes guest-count-pop {
+  0%   { transform: scale(1); color: var(--ink); }
+  42%  { transform: scale(1.28); color: var(--coffee); }
+  100% { transform: scale(1); color: var(--ink); }
+}
+
 .form-disclaimer {
   font-size: 12px;
   color: var(--warm-gray);
