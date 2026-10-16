@@ -1,1 +1,120 @@
+name: Deploy Cafe Website
 
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Check out repository history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Restore missing project files from the previously uploaded ZIP
+        shell: bash
+        env:
+          SOURCE_COMMIT: 75926995af23f6600728dad7a0e01f9aa45d65d9
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/cafe-original.zip"
+          extracted="$RUNNER_TEMP/cafe-extracted"
+          mkdir -p "$extracted"
+
+          # Recover the ZIP from its original Git commit; it is no longer in the current file list.
+          git show "${SOURCE_COMMIT}:cafe.zip" > "$archive"
+          unzip -q "$archive" -d "$extracted"
+
+          if [ -f "$extracted/package.json" ]; then
+            source_root="$extracted"
+          else
+            package_file="$(find "$extracted" -mindepth 1 -maxdepth 5 -type f -name package.json -print -quit || true)"
+            if [ -n "$package_file" ]; then
+              source_root="$(dirname "$package_file")"
+            else
+              index_file="$(find "$extracted" -mindepth 1 -maxdepth 5 -type f -name index.html -print -quit || true)"
+              if [ -z "$index_file" ]; then
+                echo "Could not find the project root inside the original ZIP."
+                exit 1
+              fi
+              source_root="$(dirname "$index_file")"
+            fi
+          fi
+
+          echo "Recovering missing files from: $source_root"
+          echo "Archive file count: $(find "$source_root" -type f | wc -l)"
+
+          # Preserve all existing repository files. Do not restore secrets, credentials,
+          # Git internals, development dependencies, or generated build folders.
+          rsync -rlt --ignore-existing \
+            --exclude='.git/' \
+            --exclude='.github/' \
+            --exclude='node_modules/' \
+            --exclude='dist/' \
+            --exclude='build/' \
+            --exclude='coverage/' \
+            --exclude='.env*' \
+            --exclude='*.pem' \
+            --exclude='*.key' \
+            --exclude='*.p12' \
+            --exclude='*.pfx' \
+            --exclude='*credentials*' \
+            --exclude='*secret*' \
+            --exclude='*service-account*.json' \
+            --exclude='*.sqlite' \
+            --exclude='*.db' \
+            --exclude='*.log' \
+            --exclude='.DS_Store' \
+            --exclude='Thumbs.db' \
+            "$source_root/" ./
+
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No missing files needed restoring."
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -m "Restore missing cafe project files"
+            git push origin HEAD:main
+          fi
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build website
+        run: npm run build
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload built website
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./dist
+
+      - name: Deploy website
+        id: deployment
+        uses: actions/deploy-pages@v4
